@@ -196,7 +196,7 @@ async def inpaint(input_image_path, mask_image_path, output_image_path):
 
 # Telegram bot functions
 async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Use /faceswap to face swap, /inpaint to start inpainting, or /again to repeat the last inpainting with new randomness.")
+    await update.message.reply_text("Use /faceswap to face swap, /inpaint to start inpainting, /again to repeat the last inpainting with new randomness, or /help to show all available commands.")
 
 # /faceswap command handler
 async def faceswap(update: Update, context: CallbackContext) -> None:
@@ -207,6 +207,18 @@ async def faceswap(update: Update, context: CallbackContext) -> None:
 async def inpaint_command(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text("Please send the input image for inpainting.")
     context.user_data['action'] = 'inpaint_input'
+    
+# New /help command handler
+async def help_command(update: Update, context: CallbackContext) -> None:
+    help_text = (
+        "Available commands:\n"
+        "/start - Welcome message\n"
+        "/help - Show this help message\n"
+        "/faceswap - Start the face swap process\n"
+        "/inpaint - Start the inpainting process\n"
+        "/again - Repeat the last inpainting with new randomness."
+    )
+    await update.message.reply_text(help_text)
 
 # /again command handler - repeats inpainting
 async def inpaint_again(update: Update, context: CallbackContext) -> None:
@@ -290,6 +302,7 @@ def main() -> None:
     application = Application.builder().token(telegram_api_token).build()
 
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))  # Add help command handler
     application.add_handler(CommandHandler("faceswap", faceswap))
     application.add_handler(CommandHandler("inpaint", inpaint_command))
     application.add_handler(CommandHandler("again", inpaint_again))
