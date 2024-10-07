@@ -196,17 +196,38 @@ async def inpaint(input_image_path, mask_image_path, output_image_path):
 
 # Telegram bot functions
 async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Use /faceswap to face swap, /inpaint to start inpainting, /again to repeat the last inpainting with new randomness, or /help to show all available commands.")
+    await update.message.reply_text("Welcome to the Negav bot, use /faceswap to face swap, /inpaint to start inpainting, /again to repeat the last inpainting with new randomness, or /help to show all available commands.")
 
 # /faceswap command handler
 async def faceswap(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text("Please send the source image for face swap.")
     context.user_data['action'] = 'faceswap_source'
 
-# Modified /inpaint command handler to start inpainting after receiving one image
+# Modified /inpaint command handler to ask for a password before inpainting
 async def inpaint_command(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Please send the input image for inpainting.")
-    context.user_data['action'] = 'inpaint_input'
+    # Check if the user is already authenticated
+    if context.user_data.get('authenticated', False):
+        await update.message.reply_text("Please send the input image for inpainting.")
+        context.user_data['action'] = 'inpaint_input'
+    else:
+        # Ask for the password if not authenticated
+        await update.message.reply_text("What's the password?")
+        context.user_data['action'] = 'check_password'
+        
+# Function to handle user input and check password
+async def handle_password(update: Update, context: CallbackContext) -> None:
+    user_data = context.user_data
+
+    if user_data.get('action') == 'check_password':
+        password = update.message.text
+
+        if password == "17062004":
+            await update.message.reply_text("Password correct! You can now use the inpaint feature.")
+            context.user_data['authenticated'] = True
+            await inpaint_command(update, context)  # Proceed to the inpaint command
+        else:
+            await update.message.reply_text("Wrong password. You can't use this feature right now.")
+            user_data['authenticated'] = False
     
 # New /help command handler
 async def help_command(update: Update, context: CallbackContext) -> None:
@@ -294,6 +315,9 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
             await update.message.reply_text("Failed to generate mask.")
 
         user_data.clear()
+        
+    elif user_data.get('action') == 'check_password':
+        await handle_password(update, context)
 
 # Main function to set up the bot
 def main() -> None:
@@ -306,7 +330,8 @@ def main() -> None:
     application.add_handler(CommandHandler("faceswap", faceswap))
     application.add_handler(CommandHandler("inpaint", inpaint_command))
     application.add_handler(CommandHandler("again", inpaint_again))
-    application.add_handler(MessageHandler(filters.PHOTO, handle_image))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_password))  # Handle password input
+    application.add_handler(MessageHandler(filters.PHOTO, handle_image))  # Handle image uploads
 
     application.run_polling()
 
