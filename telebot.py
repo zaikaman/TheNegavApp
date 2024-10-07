@@ -92,6 +92,89 @@ def save_base64_image(b64_string, output_image_path):
     except Exception as e:
         print(f"Error saving image: {str(e)}")
         return None
+    
+# /ccgen command handler to start the character generation process
+async def ccgen_command(update: Update, context: CallbackContext) -> None:
+    await update.message.reply_text("Please send the face image for character generation.")
+    context.user_data['action'] = 'ccgen_face'
+    
+# /ccgenprompt command handler to ask for the custom prompt
+async def ccgenprompt_command(update: Update, context: CallbackContext) -> None:
+    await update.message.reply_text("Enter your prompt:")
+    context.user_data['action'] = 'ccgenprompt_waiting'  # Set the action to wait for the prompt
+    print("Waiting for user prompt...")  # Add a log to track this step
+    
+# Function to handle user text input for the prompt
+async def handle_prompt_input(update: Update, context: CallbackContext) -> None:
+    user_data = context.user_data
+
+    # Check if the bot is waiting for a prompt
+    if user_data.get('action') == 'ccgenprompt_waiting':
+        prompt = update.message.text
+        user_data['ccgen_prompt'] = prompt  # Store the prompt in user_data
+        await update.message.reply_text(f"Prompt received: '{prompt}'. Now, you can continue with the character generation.")
+
+        # Optionally, clear the action after receiving the prompt
+        user_data['action'] = None
+    
+def generate_character(face_image_path, pose_image_path, prompt, output_image_path, api_key):
+    url = "https://api.segmind.com/v1/consistent-character-with-pose"
+
+    try:
+        # Log before base64 conversion
+        print("Converting face and pose images to base64.")
+        face_image_b64 = to_b64(face_image_path)
+        pose_image_b64 = to_b64(pose_image_path)
+        print("Conversion to base64 completed.")
+
+        # Prepare API request payload
+        data = {
+            "base_64": False,
+            "custom_height": 1024,
+            "custom_width": 1024,
+            "face_image": face_image_b64,  # Convert face image to base64
+            "pose_image": pose_image_b64,  # Convert pose image to base64
+            "output_format": "png",
+            "prompt": prompt,
+            "quality": 95,
+            "samples": 1,
+            "seed": random.randint(0, 2**32 - 1),  # Random seed
+            "use_input_img_dimension": True
+        }
+
+        headers = {'x-api-key': api_key}
+
+        print("Sending request to character generation API.")
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()  # This will throw an error for HTTP issues
+
+        # Log successful response status
+        print(f"API response status: {response.status_code}")
+
+        # Log the response content (if small enough)
+        output_image_b64 = response.json().get("image")
+        if output_image_b64:
+            print(f"Received base64 image of length {len(output_image_b64)}")
+            output_image_path = "ccgen_output.png"
+            return save_base64_image(output_image_b64, output_image_path)
+        else:
+            print("Error: 'image' key not found in API response.")
+            return None
+
+    except requests.exceptions.JSONDecodeError:
+            # If the response is not JSON, check if it's an image
+            if response.headers['Content-Type'] == 'image/jpeg':
+                with open(output_image_path, 'wb') as img_file:
+                    img_file.write(response.content)
+                print(f"Image saved directly from response: {output_image_path}")
+                return output_image_path
+            else:
+                print("Error: Response did not contain valid JSON or image.")
+                return None
+
+    except Exception as e:
+        print(f"Unexpected error in character generation: {str(e)}")
+        return None
 
 # Function to send request to FaceSwap API
 def face_swap(source_path, target_path, output_image_path, api_key):
@@ -257,30 +340,27 @@ async def inpaint_again(update: Update, context: CallbackContext) -> None:
     else:
         await update.message.reply_text("Failed to process the inpainting.")
 
-# Handles incoming image messages with logic for face swap
 async def handle_image(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data
     photo_file = await update.message.photo[-1].get_file()
 
+    # Face swap source image handling
     if user_data.get('action') == 'faceswap_source':
-        # Save the source image and ask for the target image
         source_image_path = 'faceswap_source.jpg'
         await photo_file.download_to_drive(source_image_path)
         user_data['faceswap_source'] = source_image_path
         await update.message.reply_text("Source image received. Please send the target image for face swap.")
         user_data['action'] = 'faceswap_target'
 
+    # Face swap target image handling
     elif user_data.get('action') == 'faceswap_target':
-        # Save the target image and perform face swap
         target_image_path = 'faceswap_target.jpg'
         await photo_file.download_to_drive(target_image_path)
         user_data['faceswap_target'] = target_image_path
-
         await update.message.reply_text("Target image received. Performing face swap...")
 
         output_image_path = 'faceswap_output.jpg'
         api_key = "SG_b77a34429a1aeb2e"  # Replace with your actual API key
-
         result = face_swap(user_data['faceswap_source'], user_data['faceswap_target'], output_image_path, api_key)
 
         if result:
@@ -289,11 +369,10 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
         else:
             await update.message.reply_text("Failed to perform face swap.")
 
-        # Clear user data after the process is complete
         user_data.clear()
 
+    # Inpainting logic
     elif user_data.get('action') == 'inpaint_input':
-        # Existing logic for inpainting
         input_image_path = 'inpaint_input.jpg'
         await photo_file.download_to_drive(input_image_path)
         await update.message.reply_text("Input image received. Generating mask...")
@@ -315,7 +394,40 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
             await update.message.reply_text("Failed to generate mask.")
 
         user_data.clear()
-        
+
+    # ccgen face image handling
+    if user_data.get('action') == 'ccgen_face':
+        face_image_path = 'ccgen_face.jpg'
+        await photo_file.download_to_drive(face_image_path)
+        user_data['ccgen_face'] = face_image_path
+        await update.message.reply_text("Face image received. Please send the pose image for character generation.")
+        user_data['action'] = 'ccgen_pose'
+
+    # ccgen pose image handling
+    elif user_data.get('action') == 'ccgen_pose':
+        pose_image_path = 'ccgen_pose.jpg'
+        await photo_file.download_to_drive(pose_image_path)
+        user_data['ccgen_pose'] = pose_image_path
+
+        # Now use the prompt that was set via /ccgenprompt
+        prompt = user_data.get('ccgen_prompt', 'naked, perfect body')
+
+        await update.message.reply_text(f"Pose image received. Generating the character with the prompt: '{prompt}'...")
+
+        # Perform character generation
+        output_image_path = 'ccgen_output.jpg'
+        api_key = "SG_b77a34429a1aeb2e"
+        result = generate_character(user_data['ccgen_face'], user_data['ccgen_pose'], prompt, output_image_path, api_key)
+
+        if result:
+            with open(output_image_path, 'rb') as img_file:
+                await update.message.reply_photo(photo=img_file, caption="Here's the generated character!")
+        else:
+            await update.message.reply_text("Failed to generate the character.")
+
+        user_data.clear()  # Clear user data after character generation
+
+    # If the bot is waiting for a password to proceed
     elif user_data.get('action') == 'check_password':
         await handle_password(update, context)
 
@@ -329,10 +441,11 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))  # Add help command handler
     application.add_handler(CommandHandler("faceswap", faceswap))
     application.add_handler(CommandHandler("inpaint", inpaint_command))
+    application.add_handler(CommandHandler("ccgen", ccgen_command))  # Add /ccgen command handler
+    application.add_handler(CommandHandler("ccgenprompt", ccgenprompt_command))  # New prompt command
     application.add_handler(CommandHandler("again", inpaint_again))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_password))  # Handle password input
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_prompt_input))  # Handle password input
     application.add_handler(MessageHandler(filters.PHOTO, handle_image))  # Handle image uploads
-
     application.run_polling()
 
 if __name__ == '__main__':
