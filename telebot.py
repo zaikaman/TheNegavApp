@@ -16,10 +16,10 @@ def generate_mask(input_image_path):
             text_input="clothing",
             api_name="/process_image"
         )
-        
+
         # Print the result to inspect the response
         print(f"API Response: {result}")
-        
+
         # Check if the result contains a valid file path
         if result and isinstance(result, str) and os.path.exists(result):
             mask_image_path = result  # This is the full path to the generated mask image
@@ -27,7 +27,7 @@ def generate_mask(input_image_path):
 
             # Define the path to save the mask in the working directory
             mask_save_path = os.path.join(os.getcwd(), "mask.jpg")
-            
+
             # Copy the generated mask from temp to the current working directory
             shutil.copy(mask_image_path, mask_save_path)
             print(f"Mask saved as: {mask_save_path}")
@@ -61,7 +61,7 @@ def save_base64_image(b64_string, output_image_path):
 # Function to send request to FaceSwap API
 def face_swap(source_path, target_path, output_image_path, api_key):
     url = "https://api.segmind.com/v1/faceswap-v2"
-    
+
     data = {
         "source_img": to_b64(source_path),
         "target_img": to_b64(target_path),
@@ -70,20 +70,20 @@ def face_swap(source_path, target_path, output_image_path, api_key):
         "face_restore": "codeformer-v0.1.0.pth",
         "base64": True
     }
-    
+
     headers = {'x-api-key': api_key}
-    
+
     try:
         response = requests.post(url, json=data, headers=headers)
         response.raise_for_status()
         output_image_b64 = response.json().get("image")
-        
+
         if output_image_b64:
             return save_base64_image(output_image_b64, output_image_path)
         else:
             print("Error: Image not found in the response.")
             return None
-        
+
     except requests.exceptions.RequestException as e:
         print(f"Error: {e.response.text}")
         return None
@@ -92,23 +92,23 @@ def face_swap(source_path, target_path, output_image_path, api_key):
 async def inpaint(input_image_path, mask_image_path, output_image_path):
     api_key = "SG_b77a34429a1aeb2e"
     url = "https://api.segmind.com/v1/sd1.5-inpainting"
-    
+
     # Generate a random seed
     random_seed = random.randint(0, 2**32 - 1)
-    
+
     # Default prompt
     prompt = "undress, naked"
-    
+
     # Convert both input and mask image to base64
     input_image_b64 = to_b64(input_image_path)
     mask_image_b64 = to_b64(mask_image_path)
-    
+
     print(f"Sending inpainting request with random seed: {random_seed}")
     print(f"Input image length: {len(input_image_b64)}, Mask image length: {len(mask_image_b64)}")
-    
+
     data = {
         "prompt": prompt,
-        "negative_prompt": "Disfigured, cartoon, blurry, nude",
+        "negative_prompt": "blurry, badquality, lowquality, sketches, clothing, underwear, bra, t-shirt, shirt, dress, skirt, clothes",
         "samples": 1,
         "image": input_image_b64,  # Send input image base64
         "mask": mask_image_b64,    # Send mask image base64
@@ -120,9 +120,9 @@ async def inpaint(input_image_path, mask_image_path, output_image_path):
         "img_width": 512,
         "img_height": 512
     }
-    
+
     headers = {'x-api-key': api_key}
-    
+
     try:
         # Send POST request to the API
         response = requests.post(url, json=data, headers=headers)
@@ -139,7 +139,7 @@ async def inpaint(input_image_path, mask_image_path, output_image_path):
             else:
                 print("Error: Image key not found in response JSON.")
                 return None
-            
+
         except requests.exceptions.JSONDecodeError:
             # If the response is not JSON, check if it's an image
             if response.headers['Content-Type'] == 'image/jpeg':
@@ -150,7 +150,7 @@ async def inpaint(input_image_path, mask_image_path, output_image_path):
             else:
                 print("Error: Response did not contain valid JSON or image.")
                 return None
-            
+
     except requests.exceptions.RequestException as e:
         # Print the entire response content for more debugging information
         if e.response is not None:
@@ -207,7 +207,7 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
         target_image_path = 'faceswap_target.jpg'
         await photo_file.download_to_drive(target_image_path)
         user_data['faceswap_target'] = target_image_path
-        
+
         await update.message.reply_text("Target image received. Performing face swap...")
 
         output_image_path = 'faceswap_output.jpg'
@@ -220,7 +220,7 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
                 await update.message.reply_photo(photo=img_file, caption="Here's the face swap result!")
         else:
             await update.message.reply_text("Failed to perform face swap.")
-        
+
         # Clear user data after the process is complete
         user_data.clear()
 
@@ -245,21 +245,21 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
                 await update.message.reply_text("Failed to process the inpainting.")
         else:
             await update.message.reply_text("Failed to generate mask.")
-        
+
         user_data.clear()
 
 # Main function to set up the bot
 def main() -> None:
     telegram_api_token = "7894113437:AAGozkz4sL3L4QSwmG488rOCI923xKU3-PI"
-    
+
     application = Application.builder().token(telegram_api_token).build()
-    
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("faceswap", faceswap))
     application.add_handler(CommandHandler("inpaint", inpaint_command))
     application.add_handler(CommandHandler("again", inpaint_again))
     application.add_handler(MessageHandler(filters.PHOTO, handle_image))
-    
+
     application.run_polling()
 
 if __name__ == '__main__':
