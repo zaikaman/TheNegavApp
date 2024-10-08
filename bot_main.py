@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-from handlers import handle_prompt_input, handle_image, start, help_command, faceswap, inpaint_command, ccgen_command, inpaint_again
+from handlers import handle_prompt_input, handle_image, start, help_command, inpaint_command, ccgen_command, inpaint_again
 import os
 
 # Main function to set up the bot
@@ -12,7 +12,6 @@ def main() -> None:
     # Command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("faceswap", faceswap))
     application.add_handler(CommandHandler("inpaint", inpaint_command))
     application.add_handler(CommandHandler("ccgen", ccgen_command))
     application.add_handler(CommandHandler("again", inpaint_again))

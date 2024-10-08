@@ -155,36 +155,6 @@ async def inpaint(input_image_path, mask_image_path, output_image_path):
             print(f"Error: {str(e)}")
         return None
 
-# Function to send request to FaceSwap API
-def face_swap(source_path, target_path, output_image_path, api_key):
-    url = "https://api.segmind.com/v1/faceswap-v2"
-
-    data = {
-        "source_img": to_b64(source_path),
-        "target_img": to_b64(target_path),
-        "input_faces_index": 0,
-        "source_faces_index": 0,
-        "face_restore": "codeformer-v0.1.0.pth",
-        "base64": True
-    }
-
-    headers = {'x-api-key': api_key}
-
-    try:
-        response = requests.post(url, json=data, headers=headers)
-        response.raise_for_status()
-        output_image_b64 = response.json().get("image")
-
-        if output_image_b64:
-            return save_base64_image(output_image_b64, output_image_path)
-        else:
-            print("Error: Image not found in the response.")
-            return None
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e.response.text}")
-        return None
-
 def generate_character(face_image_path, pose_image_path, prompt, output_image_path, api_key):
     url = "https://api.segmind.com/v1/consistent-character-with-pose"
 

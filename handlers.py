@@ -10,7 +10,7 @@ from bot_utils import to_b64, save_base64_image, generate_mask, inpaint, face_sw
 
 # Telegram bot functions
 async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Welcome to the Negav bot, use /faceswap to face swap, /inpaint to start inpainting, /again to repeat the last inpainting with new randomness, or /help to show all available commands.")
+    await update.message.reply_text("Welcome to the Negav bot, use /inpaint to start inpainting, /again to repeat the last inpainting with new randomness, /ccgen to generate consistent character or /help to show all available commands.")
 
 # New /help command handler
 async def help_command(update: Update, context: CallbackContext) -> None:
@@ -18,16 +18,11 @@ async def help_command(update: Update, context: CallbackContext) -> None:
         "Available commands:\n"
         "/start - Welcome message\n"
         "/help - Show this help message\n"
-        "/faceswap - Start the face swap process\n"
+        # "/faceswap - Start the face swap process\n"
         "/inpaint - Start the inpainting process\n"
         "/again - Repeat the last inpainting with new randomness."
     )
     await update.message.reply_text(help_text)
-
-# /faceswap command handler
-async def faceswap(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Please send the source image for face swap.")
-    context.user_data['action'] = 'faceswap_source'
 
 # Modified /inpaint command handler to ask for a password before inpainting
 async def inpaint_command(update: Update, context: CallbackContext) -> None:
@@ -88,34 +83,8 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data
     photo_file = await update.message.photo[-1].get_file()
 
-    # Face swap: Handle source image
-    if user_data.get('action') == 'faceswap_source':
-        source_image_path = 'faceswap_source.jpg'
-        await photo_file.download_to_drive(source_image_path)
-        user_data['faceswap_source'] = source_image_path
-        await update.message.reply_text("Source image received. Please send the target image for face swap.")
-        user_data['action'] = 'faceswap_target'
-
-    # Face swap: Handle target image
-    elif user_data.get('action') == 'faceswap_target':
-        target_image_path = 'faceswap_target.jpg'
-        await photo_file.download_to_drive(target_image_path)
-        user_data['faceswap_target'] = target_image_path
-        await update.message.reply_text("Target image received. Performing face swap...")
-
-        output_image_path = 'faceswap_output.jpg'
-        api_key = "SG_b77a34429a1aeb2e"
-        result = face_swap(user_data['faceswap_source'], user_data['faceswap_target'], output_image_path, api_key)
-
-        if result:
-            with open(output_image_path, 'rb') as img_file:
-                await update.message.reply_photo(photo=img_file, caption="Here's the face swap result!")
-        else:
-            await update.message.reply_text("Failed to perform face swap.")
-        user_data.clear()
-
     # Inpainting: Handle input image
-    elif user_data.get('action') == 'inpaint_input':
+    if user_data.get('action') == 'inpaint_input':
         input_image_path = 'inpaint_input.jpg'
         await photo_file.download_to_drive(input_image_path)
         await update.message.reply_text("Input image received. Generating mask...")
