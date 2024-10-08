@@ -5,7 +5,7 @@ import base64
 import requests
 from telegram import Update
 from telegram.ext import CallbackContext
-from bot_utils import to_b64, save_base64_image, generate_mask, inpaint, face_swap, generate_character, handle_password
+from bot_utils import to_b64, save_base64_image, generate_mask, inpaint, generate_character, handle_password
 
 
 # Telegram bot functions
