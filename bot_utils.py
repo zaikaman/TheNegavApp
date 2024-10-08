@@ -6,6 +6,19 @@ import random
 import shutil
 from gradio_client import Client, handle_file
 
+# Hàm kiểm tra xem username đã được authenticated chưa
+def is_user_authenticated(username):
+    if not os.path.exists("authenticated_users.txt"):
+        return False
+    with open("authenticated_users.txt", "r") as file:
+        authenticated_users = file.read().splitlines()
+    return username in authenticated_users
+
+# Hàm lưu username vào file authenticated_users.txt
+def save_authenticated_user(username):
+    with open("authenticated_users.txt", "a") as file:
+        file.write(f"{username}\n")
+
 # Converts an image file to Base64
 def to_b64(image_path):
     with open(image_path, "rb") as image_file:
@@ -217,13 +230,22 @@ def generate_character(face_image_path, pose_image_path, prompt, output_image_pa
 # Password handler to verify the user's password
 async def handle_password(update, context):
     password = update.message.text
-    correct_password = "17062004"  # Set your correct password here
+    correct_password = "17062004"  # Mật khẩu đúng
+    username = update.message.from_user.username  # Lấy username người dùng từ tin nhắn
+
+    if is_user_authenticated(username):  # Kiểm tra xem người dùng đã authenticated chưa
+        await update.message.reply_text("You are already authenticated. You can use the inpainting and ccgen commands.")
+        context.user_data['authenticated'] = True
+        context.user_data['action'] = 'inpaint_input'
+        return
 
     if password == correct_password:
         context.user_data['authenticated'] = True
-        await update.message.reply_text("Password correct. You can now proceed with the inpainting.")
+        save_authenticated_user(username)  # Lưu username vào file sau khi nhập đúng mật khẩu
+        await update.message.reply_text("Password correct. You are now authenticated and can proceed with inpainting.")
         context.user_data['action'] = 'inpaint_input'
     else:
         context.user_data['authenticated'] = False
         await update.message.reply_text("Incorrect password. Please try again.")
         context.user_data['action'] = 'check_password'
+

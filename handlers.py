@@ -26,9 +26,16 @@ async def help_command(update: Update, context: CallbackContext) -> None:
 
 # Modified /inpaint command handler to ask for a password before inpainting
 async def inpaint_command(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Please send the input image for inpainting.")
-    context.user_data['action'] = 'inpaint_input'
+    username = update.message.from_user.username
     
+    # Kiểm tra xem user đã authenticated chưa
+    if is_user_authenticated(username):
+        await update.message.reply_text("You are authenticated. Please send the input image for inpainting.")
+        context.user_data['action'] = 'inpaint_input'
+    else:
+        await update.message.reply_text("Please enter the password to continue.")
+        context.user_data['action'] = 'check_password'
+
 # /again command handler - repeats inpainting
 async def inpaint_again(update: Update, context: CallbackContext) -> None:
     input_image_path = 'inpaint_input.jpg'
@@ -47,12 +54,23 @@ async def inpaint_again(update: Update, context: CallbackContext) -> None:
 
 # /ccgen command handler (character generation)
 async def ccgen_command(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Please send the face image for character generation.")
-    context.user_data['action'] = 'ccgen_face'
+    username = update.message.from_user.username
+    
+    # Kiểm tra xem user đã authenticated chưa
+    if is_user_authenticated(username):
+        await update.message.reply_text("You are authenticated. Please send the face image for character generation.")
+        context.user_data['action'] = 'ccgen_face'
+    else:
+        await update.message.reply_text("Please enter the password to continue.")
+        context.user_data['action'] = 'check_password'
 
-# Handle user text input (for prompt or password)
 async def handle_prompt_input(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data
+    username = update.message.from_user.username
+
+    # Nếu user đã authenticated thì bỏ qua việc yêu cầu nhập mật khẩu
+    if is_user_authenticated(username):
+        user_data['authenticated'] = True
 
     # Handle character generation prompt input
     if user_data.get('action') == 'ccgen_prompt':
@@ -74,13 +92,21 @@ async def handle_prompt_input(update: Update, context: CallbackContext) -> None:
             await update.message.reply_text("Failed to generate the character.")
         user_data.clear()
 
-    # Handle password input (no changes)
-    elif user_data.get('action') == 'check_password':
+    # Handle password input (for users not authenticated)
+    elif not user_data.get('authenticated'):
         await handle_password(update, context)
 
 # Handle images for face swap, inpainting, and character generation
 async def handle_image(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data
+    username = update.message.from_user.username
+
+    # Nếu người dùng chưa authenticated, yêu cầu nhập mật khẩu
+    if not is_user_authenticated(username) and not user_data.get('authenticated'):
+        await update.message.reply_text("Please enter the password to proceed.")
+        context.user_data['action'] = 'check_password'
+        return
+
     photo_file = await update.message.photo[-1].get_file()
 
     # Inpainting: Handle input image
@@ -123,3 +149,11 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
         # Now wait for the user to send the prompt
         await update.message.reply_text("Pose image received. Please type the prompt for character generation.")
         user_data['action'] = 'ccgen_prompt'  # Set the action to expect a prompt input
+        
+def is_user_authenticated(username: str) -> bool:
+    try:
+        with open('authenticated_users.txt', 'r') as f:
+            authenticated_users = f.read().splitlines()
+        return username in authenticated_users
+    except FileNotFoundError:
+        return False
