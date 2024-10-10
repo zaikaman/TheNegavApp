@@ -82,7 +82,7 @@ async def handle_prompt_input(update: Update, context: CallbackContext) -> None:
         face_image_path = user_data['ccgen_face']
         pose_image_path = user_data['ccgen_pose']
         output_image_path = 'ccgen_output.jpg'
-        api_key = "SG_03c17009344e9a6c"
+        api_key = "SG_38bb0c4a24258d71"
         result = generate_character(face_image_path, pose_image_path, prompt, output_image_path, api_key)
 
         if result:
