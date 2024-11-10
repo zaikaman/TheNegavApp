@@ -272,7 +272,7 @@ async def stability_inpaint(input_image_path, mask_image_path, output_path):
 
         # Make API call
         answers = stability_api.generate(
-            prompt="undress, naked, perfect body",
+            prompt="clown costume",
             init_image=init_image,
             mask_image=mask_image,
             start_schedule=1,
