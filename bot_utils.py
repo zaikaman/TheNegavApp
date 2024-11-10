@@ -5,8 +5,6 @@ from PIL import Image, ImageDraw
 import random
 import shutil
 from gradio_client import Client, handle_file
-from stability_sdk import client
-import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
 import io
 
 # Hàm kiểm tra xem username đã được authenticated chưa
@@ -251,48 +249,3 @@ async def handle_password(update, context):
         context.user_data['authenticated'] = False
         await update.message.reply_text("Incorrect password. Please try again.")
         context.user_data['action'] = 'check_password'
-
-async def stability_inpaint(input_image_path, mask_image_path, output_path):
-    # Initialize Stability API client
-    stability_api = client.StabilityInference(
-        key='sk-Siqk5cm2ri0QaMA1Q7ttcsrji2oLdIdh4SC1SkYZlgcvQVYZ',
-        verbose=True
-    )
-    
-    try:
-        # Open and prepare the images
-        init_image = Image.open(input_image_path)
-        mask_image = Image.open(mask_image_path)
-
-        # Ensure images are in RGBA mode
-        if init_image.mode != 'RGBA':
-            init_image = init_image.convert('RGBA')
-        if mask_image.mode != 'RGBA':
-            mask_image = mask_image.convert('RGBA')
-
-        # Make API call
-        answers = stability_api.generate(
-            prompt="clown costume",
-            init_image=init_image,
-            mask_image=mask_image,
-            start_schedule=1,
-            seed=123456789,
-            steps=30,
-            cfg_scale=8.0,
-            width=512,
-            height=512,
-            sampler=generation.SAMPLER_K_DPMPP_2M
-        )
-
-        # Process and save the result
-        for resp in answers:
-            for artifact in resp.artifacts:
-                if artifact.type == generation.ARTIFACT_IMAGE:
-                    img = Image.open(io.BytesIO(artifact.binary))
-                    img.save(output_path)
-                    return output_path
-
-    except Exception as e:
-        print(f"Error in Stability inpainting: {str(e)}")
-        return None
-
