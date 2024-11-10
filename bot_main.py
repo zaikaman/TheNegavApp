@@ -1,7 +1,6 @@
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext, CallbackQueryHandler
-from handlers import handle_prompt_input, handle_image, start, help_command, inpaint_command, ccgen_command, inpaint_again, button_callback
-import os
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from handlers import handle_prompt_input, handle_image, start, help_command, inpaint_command, ccgen_command, inpaint_again
 
 # Main function to set up the bot
 def main() -> None:
@@ -17,11 +16,8 @@ def main() -> None:
     application.add_handler(CommandHandler("again", inpaint_again))
 
     # Message handlers
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_prompt_input))  # Handle password input
-    application.add_handler(MessageHandler(filters.PHOTO, handle_image))  # Handle image uploads
-
-    # Callback query handler
-    application.add_handler(CallbackQueryHandler(button_callback))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_prompt_input))
+    application.add_handler(MessageHandler(filters.PHOTO, handle_image))
 
     application.run_polling()
 

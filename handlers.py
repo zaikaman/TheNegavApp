@@ -28,15 +28,8 @@ async def inpaint_command(update: Update, context: CallbackContext) -> None:
     username = update.message.from_user.username
     
     if is_user_authenticated(username):
-        keyboard = [
-            [InlineKeyboardButton("Segmind", callback_data='api_segmind'),
-             InlineKeyboardButton("Stability AI", callback_data='api_stability')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(
-            "Please choose which API to use:",
-            reply_markup=reply_markup
-        )
+        await update.message.reply_text("You are authenticated. Please send the input image for inpainting.")
+        context.user_data['action'] = 'inpaint_input'
     else:
         await update.message.reply_text("Please enter the password to continue.")
         context.user_data['action'] = 'check_password'
@@ -104,19 +97,10 @@ async def handle_prompt_input(update: Update, context: CallbackContext) -> None:
 # Handle images for face swap, inpainting, and character generation
 async def handle_image(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data
-    username = update.message.from_user.username
-
-    # Nếu người dùng chưa authenticated, yêu cầu nhập mật khẩu
-    if not is_user_authenticated(username) and not user_data.get('authenticated'):
-        await update.message.reply_text("Please enter the password to proceed.")
-        context.user_data['action'] = 'check_password'
-        return
-
-    photo_file = await update.message.photo[-1].get_file()
-
-    # Inpainting: Handle input image
+    
     if user_data.get('action') == 'inpaint_input':
         input_image_path = 'inpaint_input.jpg'
+        photo_file = await update.message.photo[-1].get_file()
         await photo_file.download_to_drive(input_image_path)
         await update.message.reply_text("Input image received. Generating mask...")
 
@@ -125,16 +109,13 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
         if mask_image_path:
             await update.message.reply_text("Mask generated successfully. Processing inpainting...")
             output_image_path = 'inpaint_output.jpg'
-            
-            # Choose API based on user selection
-            if user_data.get('api_choice') == 'stability':
-                result = await stability_inpaint(input_image_path, mask_image_path, output_image_path)
-            else:  # default to segmind
-                result = await inpaint(input_image_path, mask_image_path, output_image_path)
+            result = await inpaint(input_image_path, mask_image_path, output_image_path)
 
             if result:
                 with open(output_image_path, 'rb') as img_file:
                     await update.message.reply_photo(photo=img_file)
+                user_data['last_input'] = input_image_path
+                user_data['last_mask'] = mask_image_path
             else:
                 await update.message.reply_text("Failed to process the inpainting.")
         else:
