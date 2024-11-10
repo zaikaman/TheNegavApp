@@ -5,7 +5,7 @@ import base64
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
-from bot_utils import to_b64, save_base64_image, generate_mask, inpaint, generate_character, handle_password, stability_inpaint
+from bot_utils import to_b64, save_base64_image, generate_mask, inpaint, generate_character, handle_password
 
 
 # Telegram bot functions
@@ -140,18 +140,6 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("Pose image received. Please type the prompt for character generation.")
         user_data['action'] = 'ccgen_prompt'  # Set the action to expect a prompt input
         
-async def button_callback(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == 'api_segmind':
-        context.user_data['api_choice'] = 'segmind'
-    elif query.data == 'api_stability':
-        context.user_data['api_choice'] = 'stability'
-    
-    await query.edit_message_text("Please send the input image for inpainting.")
-    context.user_data['action'] = 'inpaint_input'
-
 def is_user_authenticated(username: str) -> bool:
     try:
         with open('authenticated_users.txt', 'r') as f:
