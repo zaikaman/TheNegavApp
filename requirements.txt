@@ -2,3 +2,4 @@ python-telegram-bot==20.3
 requests==2.31.0
 gradio-client
 pillow
+stability-sdk

@@ -176,36 +176,6 @@ def generate_character(face_image_path, pose_image_path, prompt, output_image_pa
         print(f"Unexpected error in character generation: {str(e)}")
         return None
 
-# Function to send request to FaceSwap API
-def face_swap(source_path, target_path, output_image_path, api_key):
-    url = "https://api.segmind.com/v1/faceswap-v2"
-
-    data = {
-        "source_img": to_b64(source_path),
-        "target_img": to_b64(target_path),
-        "input_faces_index": 0,
-        "source_faces_index": 0,
-        "face_restore": "codeformer-v0.1.0.pth",
-        "base64": True
-    }
-
-    headers = {'x-api-key': api_key}
-
-    try:
-        response = requests.post(url, json=data, headers=headers)
-        response.raise_for_status()
-        output_image_b64 = response.json().get("image")
-
-        if output_image_b64:
-            return save_base64_image(output_image_b64, output_image_path)
-        else:
-            print("Error: Image not found in the response.")
-            return None
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e.response.text}")
-        return None
-
 # Inpainting function with logging for input and mask
 async def inpaint(input_image_path, mask_image_path, output_image_path):
     api_key = "SG_b77a34429a1aeb2e"
@@ -344,35 +314,8 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
     user_data = context.user_data
     photo_file = await update.message.photo[-1].get_file()
 
-    # Face swap source image handling
-    if user_data.get('action') == 'faceswap_source':
-        source_image_path = 'faceswap_source.jpg'
-        await photo_file.download_to_drive(source_image_path)
-        user_data['faceswap_source'] = source_image_path
-        await update.message.reply_text("Source image received. Please send the target image for face swap.")
-        user_data['action'] = 'faceswap_target'
-
-    # Face swap target image handling
-    elif user_data.get('action') == 'faceswap_target':
-        target_image_path = 'faceswap_target.jpg'
-        await photo_file.download_to_drive(target_image_path)
-        user_data['faceswap_target'] = target_image_path
-        await update.message.reply_text("Target image received. Performing face swap...")
-
-        output_image_path = 'faceswap_output.jpg'
-        api_key = "SG_b77a34429a1aeb2e"  # Replace with your actual API key
-        result = face_swap(user_data['faceswap_source'], user_data['faceswap_target'], output_image_path, api_key)
-
-        if result:
-            with open(output_image_path, 'rb') as img_file:
-                await update.message.reply_photo(photo=img_file, caption="Here's the face swap result!")
-        else:
-            await update.message.reply_text("Failed to perform face swap.")
-
-        user_data.clear()
-
     # Inpainting logic
-    elif user_data.get('action') == 'inpaint_input':
+    if user_data.get('action') == 'inpaint_input':
         input_image_path = 'inpaint_input.jpg'
         await photo_file.download_to_drive(input_image_path)
         await update.message.reply_text("Input image received. Generating mask...")

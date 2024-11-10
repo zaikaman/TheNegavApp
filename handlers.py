@@ -3,9 +3,9 @@ import os
 import shutil
 import base64
 import requests
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
-from bot_utils import to_b64, save_base64_image, generate_mask, inpaint, generate_character, handle_password
+from bot_utils import to_b64, save_base64_image, generate_mask, inpaint, generate_character, handle_password, stability_inpaint
 
 
 # Telegram bot functions
@@ -18,7 +18,6 @@ async def help_command(update: Update, context: CallbackContext) -> None:
         "Available commands:\n"
         "/start - Welcome message\n"
         "/help - Show this help message\n"
-        # "/faceswap - Start the face swap process\n"
         "/inpaint - Start the inpainting process\n"
         "/again - Repeat the last inpainting with new randomness."
     )
@@ -28,10 +27,16 @@ async def help_command(update: Update, context: CallbackContext) -> None:
 async def inpaint_command(update: Update, context: CallbackContext) -> None:
     username = update.message.from_user.username
     
-    # Kiểm tra xem user đã authenticated chưa
     if is_user_authenticated(username):
-        await update.message.reply_text("You are authenticated. Please send the input image for inpainting.")
-        context.user_data['action'] = 'inpaint_input'
+        keyboard = [
+            [InlineKeyboardButton("Segmind", callback_data='api_segmind'),
+             InlineKeyboardButton("Stability AI", callback_data='api_stability')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            "Please choose which API to use:",
+            reply_markup=reply_markup
+        )
     else:
         await update.message.reply_text("Please enter the password to continue.")
         context.user_data['action'] = 'check_password'
@@ -119,13 +124,17 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
 
         if mask_image_path:
             await update.message.reply_text("Mask generated successfully. Processing inpainting...")
-
             output_image_path = 'inpaint_output.jpg'
-            result = await inpaint(input_image_path, mask_image_path, output_image_path)
+            
+            # Choose API based on user selection
+            if user_data.get('api_choice') == 'stability':
+                result = await stability_inpaint(input_image_path, mask_image_path, output_image_path)
+            else:  # default to segmind
+                result = await inpaint(input_image_path, mask_image_path, output_image_path)
 
             if result:
                 with open(output_image_path, 'rb') as img_file:
-                    await update.message.reply_photo(photo=img_file, caption="Here's the inpaint result!")
+                    await update.message.reply_photo(photo=img_file)
             else:
                 await update.message.reply_text("Failed to process the inpainting.")
         else:
@@ -150,6 +159,18 @@ async def handle_image(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("Pose image received. Please type the prompt for character generation.")
         user_data['action'] = 'ccgen_prompt'  # Set the action to expect a prompt input
         
+async def button_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == 'api_segmind':
+        context.user_data['api_choice'] = 'segmind'
+    elif query.data == 'api_stability':
+        context.user_data['api_choice'] = 'stability'
+    
+    await query.edit_message_text("Please send the input image for inpainting.")
+    context.user_data['action'] = 'inpaint_input'
+
 def is_user_authenticated(username: str) -> bool:
     try:
         with open('authenticated_users.txt', 'r') as f:
