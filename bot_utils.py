@@ -33,13 +33,12 @@ def save_base64_image(base64_string, output_path):
 # Function to generate mask using SAM API with a fallback
 def generate_mask(input_image_path):
     primary_client = Client("SkalskiP/florence-sam-masking")
-    secondary_client = Client("tb2l/florence-sam-masking")
 
     try:
         # Attempt to generate mask using primary API
         result = primary_client.predict(
             image_input=handle_file(input_image_path),
-            text_input="clothing",
+            text_input="clothing, clothes",
             api_name="/process_image"
         )
 
@@ -59,43 +58,11 @@ def generate_mask(input_image_path):
             print(f"Mask saved as: {mask_save_path}")
             return mask_save_path
         else:
-            print("Primary API: Mask generation failed. Trying secondary API.")
-            return fallback_generate_mask(input_image_path, secondary_client)
-
-    except Exception as e:
-        print(f"Primary API Error generating mask: {str(e)}")
-        print("Trying secondary API.")
-        return fallback_generate_mask(input_image_path, secondary_client)
-
-# Function to attempt mask generation using the secondary API
-def fallback_generate_mask(input_image_path, client):
-    try:
-        result = client.predict(
-            image_input=handle_file(input_image_path),
-            text_input="clothing",
-            api_name="/process_image"
-        )
-
-        # Print the result to inspect the response
-        print(f"Secondary API Response: {result}")
-
-        if result and isinstance(result, str) and os.path.exists(result):
-            mask_image_path = result  # This is the full path to the generated mask image
-            print(f"Mask generated at (fallback): {mask_image_path}")
-
-            # Define the path to save the mask in the working directory
-            mask_save_path = os.path.join(os.getcwd(), "mask.jpg")
-
-            # Copy the generated mask from temp to the current working directory
-            shutil.copy(mask_image_path, mask_save_path)
-            print(f"Mask saved as (fallback): {mask_save_path}")
-            return mask_save_path
-        else:
-            print("Error: Mask generation failed in secondary API. Invalid result or file does not exist.")
+            print("Error: Mask generation failed.")
             return None
 
     except Exception as e:
-        print(f"Error generating mask in secondary API: {str(e)}")
+        print(f"Error generating mask: {str(e)}")
         return None
 
 # Inpainting function with logging for input and mask
